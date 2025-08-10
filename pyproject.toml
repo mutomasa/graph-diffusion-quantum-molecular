@@ -13,6 +13,12 @@ dependencies = [
   "qiskit-nature",
   "pyscf",
   "torch",
+  "torch-geometric",
+  "e3nn",
+  "pytorch-lightning",
+  "wandb",
+  "omegaconf",
+  "hydra-core",
 ]
 
 [build-system]

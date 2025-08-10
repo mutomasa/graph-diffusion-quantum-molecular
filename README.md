@@ -21,6 +21,331 @@
 - **創薬適合性スコア**: 総合的な創薬候補評価
 - **最適化推奨事項**: 構造改善の具体的提案
 
+## 🚀 クイックスタート
+
+### 1. 環境セットアップ
+
+```bash
+# リポジトリのクローン
+git clone <repository-url>
+cd diffusion_quantum_demo
+
+# 依存関係のインストール
+uv sync
+# または
+pip install -e .
+```
+
+### 2. Streamlitアプリケーションの起動
+
+```bash
+streamlit run app.py
+```
+
+ブラウザで `http://localhost:8501` にアクセスしてアプリケーションを使用できます。
+
+## 📱 Streamlitアプリケーション操作ガイド
+
+### メイン画面の構成
+
+アプリケーションは以下のセクションで構成されています：
+
+#### 1. サイドバー設定
+- **分子生成数**: 一度に生成する分子の数（1-20個）
+- **最大原子数**: 生成する分子の最大原子数（5-50個）
+- **デバイス選択**: CPU/GPUの選択
+- **チェックポイント**: 学習済みモデルの読み込み（オプション）
+
+#### 2. 分子生成セクション
+- **「分子を生成」ボタン**: E(3)-equivariant diffusionモデルで分子を生成
+- **生成結果表示**: SMILES文字列と3D構造の可視化
+- **リアルタイム生成**: ストリーミング形式での分子生成
+
+#### 3. 3D可視化セクション
+- **py3Dmolビューア**: 分子の3D構造をインタラクティブに表示
+- **回転・ズーム**: マウスで分子を回転・拡大縮小
+- **原子ハイライト**: 特定の原子をクリックしてハイライト
+
+#### 4. 量子化学計算セクション
+- **「量子計算実行」ボタン**: VQEによる分子特性計算
+- **計算結果表示**: エネルギー、HOMO-LUMOギャップ、双極子モーメント
+- **計算進捗**: リアルタイムでの計算状況表示
+
+#### 5. 創薬適合性評価セクション
+- **Lipinskiの法則**: 薬物動態の評価
+- **創薬適合性スコア**: 総合評価（0-100点）
+- **改善提案**: 構造最適化の推奨事項
+
+### 操作手順
+
+#### 基本的な使用フロー
+
+1. **分子生成**
+   ```
+   サイドバーで設定 → 「分子を生成」クリック → 結果確認
+   ```
+
+2. **量子計算**
+   ```
+   生成された分子選択 → 「量子計算実行」クリック → 結果分析
+   ```
+
+3. **創薬評価**
+   ```
+   計算結果確認 → 創薬適合性スコア確認 → 改善提案検討
+   ```
+
+#### 高度な機能
+
+- **バッチ処理**: 複数分子の一括生成・評価
+- **結果保存**: 生成結果のCSV/JSON形式での保存
+- **カスタム分子**: SMILES入力による既存分子の分析
+
+### トラブルシューティング
+
+#### よくある問題と解決方法
+
+1. **GPUメモリ不足**
+   ```
+   解決策: サイドバーで「CPU」を選択
+   ```
+
+2. **計算時間が長い**
+   ```
+   解決策: 分子数を減らす、最大原子数を小さくする
+   ```
+
+3. **3D表示が表示されない**
+   ```
+   解決策: ブラウザのJavaScriptを有効化、別のブラウザで試行
+   ```
+
+## 🔬 E(3)-equivariant Diffusionモデル詳細解説
+
+### 論文ベース実装について
+
+この実装は、**2022年の「E(3)-Equivariant Diffusion for Molecule Generation in 3D」論文**（University of Amsterdam / Qualcomm AI Research）をベースにしています。
+
+#### 論文との対応関係
+
+**基本コンセプトの一致:**
+- ✅ **E(3)等価性**: 回転・並進に対して不変な分子生成
+- ✅ **3D座標生成**: 原子種と3D座標の同時生成
+- ✅ **拡散モデル**: ノイズから秩序への変換過程
+- ✅ **EGNN統合**: E(3)等価なGNNを拡散モデルに組み込み
+
+**論文の主要技術:**
+- E(3)等価なGNN（EGNN）を拡散モデルに組み込み
+- 原子種と3D座標を同時に生成
+- メッセージパッシングによる等価性の保持
+
+#### 実装の違いと簡略化
+
+**論文の完全実装 vs 今回の実装:**
+
+| 要素 | 論文（完全版） | 今回の実装（簡略版） |
+|------|----------------|---------------------|
+| **E(3)等価性** | 完全なEGNN | 簡略化されたメッセージパッシング |
+| **テンソル積** | 複雑な球面調和関数 | 相対位置ベースの簡易実装 |
+| **拡散スケジュール** | 高度なノイズスケジュール | 線形ノイズスケジュール |
+| **学習済みモデル** | 大規模データセットで学習 | 初期化されたモデル |
+| **計算複雑度** | 高（完全な等価性） | 中（簡略化された等価性） |
+
+#### 簡略化の理由
+
+**実装の簡略化を行った理由:**
+1. **学習済みモデルの不在**: 論文の完全実装には大規模な学習データが必要
+2. **計算リソース**: 完全なEGNNは計算コストが高い
+3. **デモンストレーション目的**: 概念の理解と動作確認が主目的
+4. **拡張性**: 段階的に機能を追加できる基盤として
+
+#### 今後の拡張可能性
+
+**完全実装への道筋:**
+```python
+# 将来的な完全実装例
+class FullE3DiffusionModel(nn.Module):
+    def __init__(self):
+        # 完全なEGNNレイヤー
+        self.egnn_layers = nn.ModuleList([
+            EGNNLayer(irreps_in, irreps_out)
+            for _ in range(num_layers)
+        ])
+        
+        # 球面調和関数ベースのテンソル積
+        self.tensor_products = nn.ModuleList([
+            o3.TensorProduct(irreps_in, irreps_out, instructions)
+            for _ in range(num_layers)
+        ])
+```
+
+### 基本原理
+
+E(3)-equivariant diffusionモデルは、分子の3D構造を直接生成する革新的なAI技術です。
+
+#### 1. E(3)等変性とは
+
+E(3)等変性とは、3次元ユークリッド空間での回転・並進に対して不変な性質を指します。
+
+```
+E(3) = SO(3) × ℝ³
+- SO(3): 3次元回転群
+- ℝ³: 3次元並進群
+```
+
+#### 2. 分子生成における重要性
+
+**従来の問題点:**
+- SMILES文字列ベースの生成では3D情報が失われる
+- 後処理での3D構造生成が必要
+- 物理的制約が考慮されない
+
+**E(3)等変性の利点:**
+- 3D座標を直接生成
+- 物理的制約を自然に満たす
+- 回転・並進に対して不変な表現
+
+### 技術的実装
+
+#### 1. アーキテクチャ概要
+
+```python
+class SimpleE3DiffusionModel(nn.Module):
+    def __init__(self, num_atom_types=119, hidden_dim=128, num_layers=6):
+        # 時間埋め込み
+        self.time_embed = nn.Sequential(...)
+        
+        # 原子タイプ埋め込み
+        self.atom_embed = nn.Embedding(num_atom_types, hidden_dim)
+        
+        # E(3)等変性レイヤー（論文のEGNNを簡略化）
+        self.layers = nn.ModuleList([
+            SimpleE3Layer(hidden_dim, hidden_dim) 
+            for _ in range(num_layers)
+        ])
+        
+        # 出力ヘッド
+        self.atom_type_head = nn.Linear(hidden_dim, num_atom_types)
+        self.position_head = nn.Linear(hidden_dim, 3)
+```
+
+#### 2. メッセージパッシングレイヤー（論文のEGNNを簡略化）
+
+```python
+class SimpleE3Layer(MessagePassing):
+    def message(self, x_i, x_j, pos_i, pos_j):
+        # 相対位置の計算（E(3)等価性の保持）
+        rel_pos = pos_j - pos_i
+        
+        # ノード特徴と相対位置の結合
+        message_input = torch.cat([x_i, x_j, rel_pos], dim=-1)
+        
+        # メッセージ計算（論文の複雑なテンソル積を簡略化）
+        return self.message_mlp(message_input)
+```
+
+#### 3. 拡散プロセス
+
+**ノイズ追加過程:**
+```
+q(x_t | x_0) = N(x_t; √α_t x_0, (1-α_t)I)
+```
+
+**デノイズ過程:**
+```
+p_θ(x_{t-1} | x_t) = N(x_{t-1}; μ_θ(x_t, t), Σ_θ(x_t, t))
+```
+
+### 分子生成の流れ
+
+#### 1. 初期化
+```python
+# 純粋なノイズから開始
+atom_types = torch.randint(1, 6, (num_atoms,))  # ランダム原子タイプ
+positions = torch.randn(num_atoms, 3) * 2.0     # ランダム3D座標
+```
+
+#### 2. 反復デノイズ
+```python
+for t in reversed(range(num_timesteps)):
+    # モデルによる予測
+    atom_logits, pos_pred = model(data, t)
+    
+    # デノイズステップ
+    positions = scheduler.denoise_step(positions, pos_pred, t)
+    atom_types = torch.argmax(atom_logits, dim=-1)
+```
+
+#### 3. 後処理
+```python
+# 原子間距離に基づく結合推定
+for i, j in atom_pairs:
+    dist = ||positions[i] - positions[j]||
+    if dist < bond_threshold:
+        add_bond(i, j)
+```
+
+### 学習済みモデルの使用
+
+#### 1. チェックポイントの読み込み
+
+```python
+# 学習済みモデルの読み込み
+sampler = DiffusionSampler(
+    ckpt_path="path/to/checkpoint.pt",
+    device="cuda"
+)
+```
+
+#### 2. 条件付き生成
+
+```python
+# 特定の条件での分子生成
+molecules = sampler.sample_smiles(
+    n=10, 
+    cond={"target_property": "drug_likeness"}
+)
+```
+
+### 性能評価
+
+#### 1. 生成品質指標
+
+- **化学的妥当性**: 有効なSMILESの割合
+- **多様性**: 生成分子の構造的多様性
+- **新規性**: 既存データベースとの重複率
+
+#### 2. 計算効率
+
+- **生成速度**: 分子/秒
+- **メモリ使用量**: GPU/CPUメモリ消費
+- **スケーラビリティ**: 大規模分子への対応
+
+### 応用例
+
+#### 1. 創薬支援
+- **リード化合物発見**: 新規化合物の生成
+- **構造最適化**: 既存化合物の改良
+- **標的特異性**: 特定タンパク質への結合分子設計
+
+#### 2. 材料科学
+- **有機材料**: 有機EL、太陽電池材料
+- **触媒設計**: 効率的な触媒分子の生成
+- **ポリマー**: 機能性ポリマーの設計
+
+### 参考文献
+
+**ベース論文:**
+- **"E(3)-Equivariant Diffusion for Molecule Generation in 3D"** (2022)
+  - University of Amsterdam / Qualcomm AI Research
+  - E(3)等価なGNN（EGNN）を拡散モデルに組み込み、原子種＋3D座標を同時生成
+  - [GitHub](https://github.com/qualcomm-ai-research/e3-equivariant-diffusion) / [論文](https://arxiv.org/abs/2203.17003)
+
+**関連研究:**
+- "Equivariant Graph Neural Networks" (ICML 2020)
+- "Geometric Deep Learning: Going beyond Euclidean data" (IEEE Signal Processing Magazine 2017)
+- "Diffusion Models: A Comprehensive Survey of Methods and Applications" (arXiv 2022)
+
 ## 🔬 技術詳細
 
 ### グラフベース拡散モデル
@@ -147,19 +472,45 @@
 
 ### 必要なライブラリ
 ```bash
-pip install streamlit plotly rdkit qiskit qiskit-nature pyscf numpy scipy
+pip install streamlit plotly rdkit qiskit qiskit-nature pyscf numpy scipy torch torch-geometric e3nn
 ```
 
 ### 主要コンポーネント
-- `generator.py`: グラフ拡散モデルの実装
+- `src/e3_diffusion.py`: E(3)-equivariant diffusionモデルの実装
+- `generator.py`: 分子生成サンプラー
 - `qchem.py`: VQE計算と量子化学計算
 - `diffusion_visualizer.py`: 3D可視化機能
 - `app.py`: Streamlitアプリケーション
 
 ### 実行方法
 ```bash
+# 依存関係のインストール
+uv sync
+
+# テストの実行
+python test_e3_diffusion.py
+
+# アプリケーションの起動
 streamlit run app.py
 ```
+
+## 🧪 テストと検証
+
+### テストスイート
+```bash
+# 全テストの実行
+python test_e3_diffusion.py
+
+# 個別テスト
+python -c "from test_e3_diffusion import test_e3_model; test_e3_model()"
+```
+
+### テスト内容
+- ✅ E(3)-equivariant diffusion model
+- ✅ Diffusion Scheduler
+- ✅ Molecular Sampler
+- ✅ DiffusionSampler
+- ✅ SMILES変換
 
 ## 🎯 今後の展望
 
