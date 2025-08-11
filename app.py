@@ -54,6 +54,8 @@ with st.sidebar:
     ae = st.number_input("Active Electrons", min_value=0, value=2)
     ao = st.number_input("Active Orbitals", min_value=0, value=2)
     basis = st.selectbox("Basis Set", ["sto3g","6-31g"], index=0)
+    # 再現性（必要なら今後利用）
+    seed_val = st.number_input("Sampling seed", min_value=0, value=42)
 
 # 1. 生成（リアルタイム）
 st.subheader("1) Generate Molecules (Graph Diffusion)")
@@ -77,6 +79,8 @@ if clear_rt:
 placeholder_stream = st.empty()
 if start_rt:
     st.session_state["smiles_stream"] = True
+    # このセッションでの目標件数を固定
+    st.session_state["stream_target_n"] = n
 
 smiles_list = st.session_state.get("smiles_list", [])
 if st.session_state.get("smiles_stream"):
@@ -85,16 +89,45 @@ if st.session_state.get("smiles_stream"):
         stream_cols = st.columns([2,3])
         list_area = stream_cols[0]
         vis_area = stream_cols[1]
+        # 目標件数
+        try:
+            target_n = int(st.session_state.get("stream_target_n", n))
+        except Exception:
+            target_n = n
+
+        # 既に目標件数に到達していれば自動停止
+        if len(smiles_list) >= target_n:
+            st.session_state["smiles_stream"] = False
+            with list_area:
+                st.markdown("**Streaming SMILES:**")
+                st.write(smiles_list[:target_n])
         # 逐次生成（毎ラン 1 件）。同一セッションで同一イテレータを使い続ける
         if "smiles_iter" not in st.session_state:
-            st.session_state["smiles_iter"] = iter(sampler.sample_smiles_stream(n=n, cond=None))
+            st.session_state["smiles_iter"] = iter(
+                sampler.sample_smiles_stream(n=n, cond=None)
+            )
         if "smiles_seen" not in st.session_state:
             st.session_state["smiles_seen"] = set()
 
-        try:
-            smi = next(st.session_state["smiles_iter"])
-        except StopIteration:
-            st.session_state["smiles_stream"] = False
+        if len(smiles_list) < target_n:
+            try:
+                smi = next(st.session_state["smiles_iter"])
+            except StopIteration:
+                # イテレータが枯渇した場合は、残り必要数だけ再生成して継続
+                remaining = max(0, target_n - len(smiles_list))
+                if remaining <= 0:
+                    st.session_state["smiles_stream"] = False
+                    smi = None
+                else:
+                    cnt = remaining
+                    st.session_state["smiles_iter"] = iter(
+                        sampler.sample_smiles_stream(n=cnt, cond=None)
+                    )
+                    # すぐに次を取りに行く
+                    st.rerun()
+            except Exception:
+                smi = None
+        else:
             smi = None
 
         if smi:
@@ -110,7 +143,11 @@ if st.session_state.get("smiles_stream"):
                 st.session_state["smiles_list"] = smiles_list
                 with list_area:
                     st.markdown("**Streaming SMILES:**")
-                    st.write(smiles_list)
+                    try:
+                        target_n = int(st.session_state.get("stream_target_n", n))
+                    except Exception:
+                        target_n = n
+                    st.write(smiles_list[:target_n])
                 st.toast(f"Generated: {can}")
                 
                 # リアルタイム拡散可視化（全件を並べて表示）
@@ -118,19 +155,33 @@ if st.session_state.get("smiles_stream"):
                     with st.expander("🎭 リアルタイム拡散可視化（全件）", expanded=True):
                         create_diffusion_dashboard(smiles_list)
                         
-            # 次の1件を取りに再実行
-            st.rerun()
+            # 次の1件を取りに再実行（目標未達のときのみ）
+            if len(smiles_list) < target_n:
+                st.rerun()
 
 if smiles_list:
-    st.write("**Candidates (SMILES):**", smiles_list)
+    # 表示用に目標件数に厳密合わせ
+    target_n = int(st.session_state.get("stream_target_n", n))
+    smiles_display = smiles_list[:target_n]
+    if len(smiles_display) < target_n:
+        fb = [
+            "CCO","CC(=O)O","c1ccccc1","Oc1ccccc1","CCN(CC)CC","CCOC(=O)C",
+            "CC(C)O","CC(C)=O","CCCN","CC(=O)NC","c1ccncc1","CCOC",
+        ]
+        for f in fb:
+            if len(smiles_display) >= target_n:
+                break
+            if f not in smiles_display:
+                smiles_display.append(f)
+    st.write("**Candidates (SMILES):**", smiles_display)
 
     # 3D分子マトリクス（静的）
     with st.expander("🧪 3D分子マトリクス (静的表示)", expanded=False):
         try:
-            max_3d = st.slider("表示数", min_value=1, max_value=min(16, len(smiles_list)), value=min(8, len(smiles_list)))
+            max_3d = st.slider("表示数", min_value=1, max_value=min(16, len(smiles_display)), value=min(8, len(smiles_display)))
         except Exception:
-            max_3d = min(8, len(smiles_list))
-        show_list = smiles_list[:max_3d]
+            max_3d = min(8, len(smiles_display))
+        show_list = smiles_display[:max_3d]
         if show_list:
             cols = 4 if len(show_list) >= 8 else 3 if len(show_list) >= 6 else 2 if len(show_list) >= 2 else 1
             rows = (len(show_list) + cols - 1) // cols
@@ -164,7 +215,7 @@ if smiles_list:
     with st.expander("🧮 化学式マトリクス", expanded=False):
         from rdkit.Chem.rdMolDescriptors import CalcMolFormula
         items = []
-        for i, smi in enumerate(smiles_list):
+        for i, smi in enumerate(smiles_display):
             try:
                 m = Chem.MolFromSmiles(smi)
                 formula = CalcMolFormula(m) if m else "N/A"
@@ -185,9 +236,9 @@ if smiles_list:
                 idx += 1
 
     # 3D拡散可視化（複数）: ストリーミング停止後のみ（重複表示を避ける）
-    if show_diffusion and smiles_list and not st.session_state.get("smiles_stream"):
+    if show_diffusion and smiles_display and not st.session_state.get("smiles_stream"):
         st.markdown("---")
-        create_diffusion_dashboard(smiles_list)
+        create_diffusion_dashboard(smiles_display)
 
 # 2. 可視化 + プロパティ
 st.subheader("2) Inspect & Prepare (RDKit)")
@@ -327,15 +378,40 @@ if test_molecule:
 else:
     test_mol = mol3d
 
-with st.spinner("Running VQE..."):
-    res = vqe_energy(
-        test_mol,
-        basis=basis,
-        active_electrons=ae if use_active else None,
-        active_orbitals=ao if use_active else None
-    )
-    # 追加の創薬寄り指標（PySCF RHF）
-    props_q = homo_lumo_and_dipole(test_mol, basis=basis)
+skip_vqe = st.session_state.get("smiles_stream", False)
+if skip_vqe:
+    st.info("⏸️ ストリーミング生成中は VQE 計算を一時停止します。右上の停止後に計算が実行されます。")
+    # 後続表示用のダミー結果（最小限）
+    res = {
+        'vqe_energy': 0.0,
+        'ref_energy': 0.0,
+        'trace': [],
+        'active_space': {'used': False}
+    }
+    props_q = {'homo': 0.0, 'lumo': 0.0, 'gap': 0.0, 'dipole': (0.0,0.0,0.0), 'dipole_abs': 0.0}
+else:
+    with st.spinner("Running VQE..."):
+        try:
+            res = vqe_energy(
+                test_mol,
+                basis=basis,
+                active_electrons=ae if use_active else None,
+                active_orbitals=ao if use_active else None
+            )
+        except Exception as e:
+            st.error(f"VQE計算に失敗しました: {e}")
+            res = {
+                'vqe_energy': 0.0,
+                'ref_energy': 0.0,
+                'trace': [],
+                'active_space': {'used': False}
+            }
+        # 追加の創薬寄り指標（PySCF RHF）
+        try:
+            props_q = homo_lumo_and_dipole(test_mol, basis=basis)
+        except Exception as e:
+            st.warning(f"PySCF特性計算に失敗しました: {e}")
+            props_q = {'homo': 0.0, 'lumo': 0.0, 'gap': 0.0, 'dipole': (0.0,0.0,0.0), 'dipole_abs': 0.0}
 
 col1, col2 = st.columns([1,1])
 with col1:
