@@ -9,8 +9,7 @@ dependencies = [
   "rdkit-pypi",
   "numpy==1.26.4",
   "matplotlib",
-  "qiskit",
-  "qiskit-nature",
+  "qiskit-nature==0.7.2",
   "pyscf",
   "torch",
   "torch-geometric",
@@ -20,6 +19,8 @@ dependencies = [
   "omegaconf",
   "hydra-core",
   "plotly>=6.2.0",
+  "qiskit-terra==0.24.2",
+  "qiskit-algorithms==0.2.2",
 ]
 
 [build-system]
