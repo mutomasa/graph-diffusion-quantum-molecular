@@ -21,6 +21,42 @@ try:
         except Exception:
             # 存在しない場合でも import エラーを避けるためダミーを割り当て
             setattr(_qk, "BasicAer", None)
+    # providers 名の互換エクスポート（JobError/JobStatus/JobV1）
+    try:
+        import importlib, types
+        _prov = importlib.import_module('qiskit.providers')
+        # 既存の実装を試行
+        try:
+            from qiskit.providers.exceptions import JobError as _JobError
+        except Exception:
+            _JobError = None
+        try:
+            from qiskit.providers.jobstatus import JobStatus as _JobStatus
+        except Exception:
+            _JobStatus = None
+        try:
+            from qiskit.providers.job import JobV1 as _JobV1
+        except Exception:
+            _JobV1 = None
+        # 足りない場合は最小ダミーを定義
+        if _JobError is None:
+            class _JobError(Exception):
+                pass
+        if _JobStatus is None:
+            class _JobStatus:
+                pass
+        if _JobV1 is None:
+            class _JobV1:  # 最小のプレースホルダ
+                pass
+        # providers 名前空間へ注入
+        if not hasattr(_prov, 'JobError'):
+            setattr(_prov, 'JobError', _JobError)
+        if not hasattr(_prov, 'JobStatus'):
+            setattr(_prov, 'JobStatus', _JobStatus)
+        if not hasattr(_prov, 'JobV1'):
+            setattr(_prov, 'JobV1', _JobV1)
+    except Exception:
+        pass
 except Exception:
     pass
 
