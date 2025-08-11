@@ -113,19 +113,79 @@ if st.session_state.get("smiles_stream"):
                     st.write(smiles_list)
                 st.toast(f"Generated: {can}")
                 
-                # リアルタイム拡散可視化
+                # リアルタイム拡散可視化（全件を並べて表示）
                 if show_diffusion:
-                    with st.expander(f"🎭 リアルタイム拡散可視化: {can}", expanded=True):
-                        create_diffusion_dashboard([can])
+                    with st.expander("🎭 リアルタイム拡散可視化（全件）", expanded=True):
+                        create_diffusion_dashboard(smiles_list)
                         
             # 次の1件を取りに再実行
             st.rerun()
 
 if smiles_list:
     st.write("**Candidates (SMILES):**", smiles_list)
-    
-    # 3D拡散可視化を表示
-    if show_diffusion and smiles_list:
+
+    # 3D分子マトリクス（静的）
+    with st.expander("🧪 3D分子マトリクス (静的表示)", expanded=False):
+        try:
+            max_3d = st.slider("表示数", min_value=1, max_value=min(16, len(smiles_list)), value=min(8, len(smiles_list)))
+        except Exception:
+            max_3d = min(8, len(smiles_list))
+        show_list = smiles_list[:max_3d]
+        if show_list:
+            cols = 4 if len(show_list) >= 8 else 3 if len(show_list) >= 6 else 2 if len(show_list) >= 2 else 1
+            rows = (len(show_list) + cols - 1) // cols
+            idx = 0
+            for r in range(rows):
+                row_cols = st.columns(cols)
+                for c in range(cols):
+                    if idx >= len(show_list):
+                        break
+                    smi = show_list[idx]
+                    try:
+                        m3d = smiles_to_3d_mol(smi)
+                        b = Chem.MolToMolBlock(m3d)
+                        v = py3Dmol.view(width=300, height=260)
+                        v.addModel(b, "sdf")
+                        v.setStyle({"stick": {}})
+                        v.setBackgroundColor("0xFFFFFF")
+                        v.zoomTo()
+                        html = v._make_html()
+                        with row_cols[c]:
+                            st.markdown(f"`{smi}`")
+                            st.components.v1.html(f"<div style='display:flex;justify-content:center'>{html}</div>", height=280)
+                    except Exception:
+                        with row_cols[c]:
+                            st.write(f"3D生成失敗: {smi}")
+                    idx += 1
+        else:
+            st.info("表示できるSMILESがありません。")
+
+    # 化学式マトリクス
+    with st.expander("🧮 化学式マトリクス", expanded=False):
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+        items = []
+        for i, smi in enumerate(smiles_list):
+            try:
+                m = Chem.MolFromSmiles(smi)
+                formula = CalcMolFormula(m) if m else "N/A"
+            except Exception:
+                formula = "N/A"
+            items.append((i, smi, formula))
+        cols = 4 if len(items) >= 8 else 3 if len(items) >= 6 else 2 if len(items) >= 2 else 1
+        rows = (len(items) + cols - 1) // cols
+        idx = 0
+        for r in range(rows):
+            row_cols = st.columns(cols)
+            for c in range(cols):
+                if idx >= len(items):
+                    break
+                i, smi, f = items[idx]
+                with row_cols[c]:
+                    st.markdown(f"**{i}**: `{smi}`\n\n- 式: **{f}**")
+                idx += 1
+
+    # 3D拡散可視化（複数）: ストリーミング停止後のみ（重複表示を避ける）
+    if show_diffusion and smiles_list and not st.session_state.get("smiles_stream"):
         st.markdown("---")
         create_diffusion_dashboard(smiles_list)
 
