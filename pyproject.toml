@@ -19,6 +19,7 @@ dependencies = [
   "wandb",
   "omegaconf",
   "hydra-core",
+  "plotly>=6.2.0",
 ]
 
 [build-system]
