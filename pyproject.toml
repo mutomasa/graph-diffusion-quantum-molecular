@@ -7,7 +7,7 @@ dependencies = [
   "streamlit",
   "py3Dmol",
   "rdkit-pypi",
-  "numpy",
+  "numpy==1.26.4",
   "matplotlib",
   "qiskit",
   "qiskit-nature",
