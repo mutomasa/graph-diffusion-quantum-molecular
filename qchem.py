@@ -1,7 +1,14 @@
 # qchem.py
 from typing import Optional, Dict, List, Tuple
 import numpy as np
-from qiskit.quantum_info import Statevector
+# Qiskit 版差異に対応した Statevector の安全インポート
+try:
+    from qiskit.quantum_info import Statevector  # 古い/一般
+except Exception:
+    try:
+        from qiskit.quantum_info.states import Statevector  # 新系
+    except Exception:
+        Statevector = None  # フォールバック
 # Qiskit バージョン差異対応: opflow 側が `from qiskit import BasicAer` や
 # `from qiskit.utils import QuantumInstance` を参照する場合があるため、
 try:
